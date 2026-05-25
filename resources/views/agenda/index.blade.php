@@ -43,6 +43,25 @@
             margin-bottom:20px;
 
         }
+        .back-btn{
+
+    background:#7f8c8d;
+
+    color:white;
+
+    text-decoration:none;
+
+    padding:12px 18px;
+
+    border-radius:8px;
+
+}
+
+.back-btn:hover{
+
+    opacity:.9;
+
+}
 
         .btn{
 
@@ -88,6 +107,51 @@
             border-radius:6px;
 
         }
+        th{
+
+            background:#2193b0;
+
+            color:white;
+
+            text-align:left;
+
+        }
+
+        td{
+
+            vertical-align:middle;
+
+        }
+
+        td:last-child{
+
+            white-space:nowrap;
+
+        }
+
+        .editar,
+        .cancelar{
+
+            display:inline-block;
+
+        }
+        .cancelar{
+        
+            background:#e74c3c;
+
+            color:white;
+
+            border:none;
+
+            padding:8px 12px;
+
+            border-radius:6px;
+
+            cursor:pointer;
+
+            margin-left:5px;
+
+        }
 
     </style>
 
@@ -105,22 +169,46 @@
 
     <div class="container">
 
-        <div class="top-bar">
-            <a href="/agenda/calendario" class="btn">Ver calendario</a>
-            <h2>
-                Citas registradas
-            </h2>
+       <div class="top-bar">
 
-            <a
-                href="/agenda/create"
-                class="btn"
-            >
+    <a
+    href="/admin"
+    class="back-btn"
+    >
 
-                Nueva cita
+    ← Dashboard
 
-            </a>
+    </a>
 
-        </div>
+    <h2>
+
+    Citas registradas
+
+    </h2>
+
+    <div>
+
+        <a
+        href="/agenda/calendario"
+        class="btn"
+        >
+
+        Calendario
+
+        </a>
+
+        <a
+        href="/agenda/create"
+        class="btn"
+        >
+
+        Nueva cita
+
+        </a>
+
+    </div>
+
+</div>
 
         <div class="card">
 
@@ -156,42 +244,58 @@
 
                 @foreach($citas as $c)
 
-                    <tr>
+                <tr>
 
-                        <td>
-                            {{ $c->mascota }}
-                        </td>
+                    <td>
+                        {{ $c->mascota->nombre }}
+                    </td>
 
-                        <td>
-                            {{ $c->servicio }}
-                        </td>
+                    <td>
+                        {{ $c->servicio->nombre }}
+                    </td>
 
-                        <td>
-                            {{ $c->fecha }}
-                        </td>
+                    <td>
+                        {{ $c->fecha }}
+                    </td>
 
-                        <td>
-                            {{ $c->hora_inicio }}
-                        </td>
+                    <td>
+                        {{ $c->hora_inicio }}
+                    </td>
 
-                        <td>
+                    <td>
+
+                        @if($c->estado == 'cancelado')
+                            ❌ Cancelado
+
+                        @elseif($c->estado == 'reservado')
+                            🟢 Reservado
+
+                        @else
                             {{ $c->estado }}
-                        </td>
+                        @endif
 
-                        <td>
+                    </td>
 
-                            <a
-                                href="/agenda/{{ $c->id_cita }}/edit"
-                                class="editar"
-                            >
+                    <td>
 
-                                Editar
+                        <a href="/agenda/{{ $c->id_cita }}/edit" class="editar">
+                            Editar
+                        </a>
 
-                            </a>
+                        @if($c->estado != 'cancelado')
 
-                        </td>
+                        <form method="POST" action="/agenda/cancelar/{{ $c->id_cita }}" style="display:inline">
+                            @csrf
+                            <button class="cancelar">
+                                Cancelar
+                            </button>
+                        </form>
 
-                    </tr>
+                        @endif
+
+                    </td>
+
+                </tr>
 
                 @endforeach
 

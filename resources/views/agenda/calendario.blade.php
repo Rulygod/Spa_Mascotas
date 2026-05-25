@@ -130,6 +130,18 @@
         .cancelado{
             background:#f8d7da;
         }
+        .nav-semana{
+
+        display:flex;
+
+        justify-content:space-between;
+
+        align-items:center;
+
+        margin-bottom:20px;
+
+        }
+
 
     </style>
 
@@ -144,7 +156,77 @@
         </h1>
 
     </div>
+    <div class="nav-semana">
 
+        <a
+
+        href="/agenda/calendario?semana=
+
+        {{
+
+        $inicioSemana
+        ->copy()
+        ->subWeek()
+        ->format('Y-m-d')
+
+        }}
+
+        "
+
+        class="btn"
+
+        >
+
+        ← Semana anterior
+
+        </a>
+
+        <h2>
+
+        Semana:
+
+        {{
+
+        $inicioSemana
+        ->format('d/m/Y')
+
+        }}
+
+        -
+
+        {{
+
+        $finSemana
+        ->format('d/m/Y')
+
+        }}
+
+        </h2>
+
+        <a
+
+        href="/agenda/calendario?semana=
+
+        {{
+
+        $inicioSemana
+        ->copy()
+        ->addWeek()
+        ->format('Y-m-d')
+
+        }}
+
+        "
+
+        class="btn"
+
+        >
+
+        Semana siguiente →
+
+        </a>
+
+        </div>
     <div class="container">
 
         <div class="top-bar">
@@ -192,12 +274,19 @@
 
                 @for($d=1;$d<=7;$d++)
 
+                    @php
+
+                        $fechaCelda = \Carbon\Carbon::parse($inicioSemana)
+                            ->addDays($d-1)
+                            ->format('Y-m-d');
+
+                    @endphp
+
                     <div
 
                         class="cell slot"
 
-                        data-dia="{{ $d }}"
-
+                        data-dia="{{ $fechaCelda }}"
                         data-hora="{{ $h }}"
 
                     >
@@ -206,7 +295,7 @@
 
                             @php
 
-                                $dia=
+                                $dia =
                                 date(
                                     'N',
                                     strtotime(
@@ -214,7 +303,7 @@
                                     )
                                 );
 
-                                $hora=
+                                $hora =
                                 intval(
                                     substr(
                                         $c->hora_inicio,
@@ -226,9 +315,9 @@
                             @endphp
 
                             @if(
-                                $dia==$d
+                                $c->fecha == $fechaCelda
                                 &&
-                                $hora==$h
+                                $hora == $h
                             )
 
                                 <div
@@ -270,82 +359,139 @@
 
 let citaActual=null;
 
+const token=
+'{{ csrf_token() }}';
+
 document
+
 .querySelectorAll('.cita')
 
 .forEach(c=>{
 
     c.addEventListener(
+
         'dragstart',
+
         ()=>{
 
             citaActual=
+
             c.dataset.id;
 
         }
+
     );
 
 });
 
 document
+
 .querySelectorAll('.slot')
 
 .forEach(s=>{
 
     s.addEventListener(
+
         'dragover',
+
         e=>{
 
             e.preventDefault();
 
         }
+
     );
 
     s.addEventListener(
+
         'drop',
 
         async ()=>{
 
+            if(!citaActual){
+
+                return;
+
+            }
+
             let dia=
+
             s.dataset.dia;
 
             let hora=
+
             s.dataset.hora;
 
-            let response=
+            try{
 
-            await fetch(
+                let response=
 
-                '/agenda/mover/'+citaActual,
+                await fetch(
 
-                {
+                    '/agenda/mover/'
 
-                    method:'POST',
+                    +citaActual,
 
-                    headers:{
+                    {
 
-                        'X-CSRF-TOKEN':
-                        '{{ csrf_token() }}',
+                        method:'POST',
 
-                        'Content-Type':
-                        'application/json'
+                        headers:{
 
-                    },
+                            'X-CSRF-TOKEN':
 
-                    body:
-                    JSON.stringify({
+                            token,
 
-                        dia:dia,
+                            'Content-Type':
 
-                        hora:hora
+                            'application/json'
 
-                    })
+                        },
+
+                        body:
+                        JSON.stringify({
+
+                            fecha:dia,
+
+                            hora:hora
+
+                        })
+
+                    }
+
+                );
+
+                let d=
+
+                await response.json();
+
+                if(!d.ok){
+
+                    alert(
+
+                        d.msg
+
+                        ||
+
+                        'No se pudo mover'
+
+                    );
 
                 }
 
-            );
+                location.reload();
 
-            location.reload();
+            }
+
+            catch(e){
+
+                alert(
+
+                    'Error al mover cita'
+
+                );
+
+            }
 
         }
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Usuario;
 
 class Cliente extends Model
 {
@@ -20,12 +21,9 @@ class Cliente extends Model
 
     ];
 
-    public function usuario()
+   public function usuario()
     {
-        return $this->belongsTo(
-            Usuario::class,
-            'id_usuario'
-        );
+        return $this->belongsTo(usuario::class, 'id_usuario', 'id_usuario');
     }
 
     public function mascotas()

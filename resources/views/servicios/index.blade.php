@@ -72,7 +72,7 @@ tr:nth-child(even){
     <div class="top">
         <h2>Lista de Servicios</h2>
 
-        <a href="/servicios/create" class="btn">
+        <a href="/admin/servicios/create" class="btn">
             + Nuevo Servicio
         </a>
     </div>

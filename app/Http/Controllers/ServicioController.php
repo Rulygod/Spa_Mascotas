@@ -24,12 +24,14 @@ class ServicioController extends Controller
         Servicio::create([
             'nombre' => $request->nombre,
             'descripcion' => $request->descripcion,
-            'duracion_minutos' => $request->duracion,
+            'duracion_minutos' => $request->duracion_minutos,
             'precio' => $request->precio,
             'tipo_mascota' => $request->tipo_mascota,
             'estado' => 'activo'
         ]);
 
-        return redirect('/servicios');
+        return redirect(
+            '/admin/servicios'
+        );
     }
 }

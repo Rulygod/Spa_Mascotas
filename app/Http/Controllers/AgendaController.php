@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-
+use App\Models\Solicitud;
 use App\Models\Cita;
 use App\Models\Mascota;
 use App\Models\Servicio;
 use App\Models\Empleado;
+use Carbon\Carbon;
 
 use Illuminate\Support\Facades\DB;
 
@@ -16,43 +17,196 @@ class AgendaController extends Controller
 
     public function index()
     {
-        $citas = DB::table('citas')
+        $citas = Cita::with([
+            'mascota',
+            'servicio'
+        ])
+        ->orderBy('fecha', 'asc')
+        ->get();
 
-            ->join(
-                'mascotas',
-                'citas.id_mascota',
-                '=',
-                'mascotas.id_mascota'
-            )
+        return view('agenda.index', compact('citas'));
+    }
+    public function create(Request $request)
+    {
+        $mascotas = DB::table('mascotas')->get();
 
-            ->join(
-                'servicios',
-                'citas.id_servicio',
-                '=',
-                'servicios.id_servicio'
-            )
-
-            ->select(
-
-                'citas.*',
-
-                'mascotas.nombre as mascota',
-
-                'servicios.nombre as servicio'
-
-            )
-
+        $servicios = DB::table('servicios')
+            ->where('estado', 'activo')
             ->get();
 
-        return view(
-            'agenda.index',
-            compact(
-                'citas'
+        $groomers = DB::table('empleados')
+            ->join('usuarios', 'empleados.id_usuario', '=', 'usuarios.id_usuario')
+            ->select(
+                'empleados.id_empleado',
+                'usuarios.nombres',
+                'usuarios.apellidos'
             )
+            ->where('empleados.cargo', 'Groomer')
+            ->get();
+
+        // 🔥 SOLICITUD (SI VIENE DEL BOTÓN)
+        $solicitud = null;
+
+        if ($request->has('solicitud')) {
+
+            $solicitud = Solicitud::with('cliente', 'mascota', 'servicio')
+                ->find($request->solicitud);
+
+            if ($solicitud) {
+                $solicitud->estado = 'en_proceso';
+                $solicitud->save();
+            }
+        }
+
+        return view('agenda.create', compact(
+            'mascotas',
+            'servicios',
+            'groomers',
+            'solicitud'
+        ));
+    }
+
+    public function store(Request $request)
+{
+    $mascota = Mascota::find($request->id_mascota);
+    $servicio = Servicio::find($request->id_servicio);
+
+    $duracion = $servicio->duracion_minutos;
+
+    if ($mascota->tamano == 'mediana') $duracion *= 1.10;
+    if ($mascota->tamano == 'grande') $duracion *= 1.15;
+    if ($mascota->tamano == 'gigante') $duracion *= 1.30;
+
+    if (in_array($mascota->temperamento_general, ['nervioso', 'agresivo'])) {
+        $duracion += 20;
+    }
+
+    $duracion = ceil($duracion);
+
+    $fin = $this->calcularFin($request->hora_inicio, $duracion);
+
+    // BLOQUEO
+    if ($bloqueo = $this->validarBloqueo($request->fecha)) {
+        return back()->with('error', 'Día bloqueado: ' . $bloqueo->motivo);
+    }
+
+    // SOLAPAMIENTO
+    if ($this->haySolapamiento($request->id_empleado, $request->fecha, $request->hora_inicio, $fin)) {
+        return back()->with('error', 'Horario ocupado');
+    }
+
+    // DIA
+    $dias = [
+        'Monday'=>'lunes',
+        'Tuesday'=>'martes',
+        'Wednesday'=>'miércoles',
+        'Thursday'=>'jueves',
+        'Friday'=>'viernes',
+        'Saturday'=>'sábado',
+        'Sunday'=>'domingo'
+    ];
+
+    $dia = $dias[date('l', strtotime($request->fecha))];
+
+    $disp = $this->obtenerDisponibilidad($request->id_empleado, $dia);
+
+    if (!$disp) {
+        return back()->with('error', 'Groomer no tiene horario');
+    }
+
+    if ($request->hora_inicio < $disp->hora_inicio || $fin > $disp->hora_fin) {
+        return back()->with('error', 'Fuera del horario del groomer');
+    }
+
+    Cita::create([
+        'id_mascota' => $request->id_mascota,
+        'id_servicio' => $request->id_servicio,
+        'id_empleado' => $request->id_empleado,
+        'fecha' => $request->fecha,
+        'hora_inicio' => $request->hora_inicio,
+        'hora_fin' => $fin,
+        'duracion_estimada_minutos' => $duracion,
+        'estado' => 'reservado'
+    ]);
+
+    return redirect('/agenda')->with('success', 'Cita registrada');
+}
+    public function calendario(Request $request)
+    {
+        $inicioSemana =
+
+        $request->semana
+
+        ?
+
+        Carbon::parse(
+            trim(
+                $request->semana
+            )
+        )->startOfWeek()
+
+        :
+
+        now()->startOfWeek();
+
+        $finSemana =
+
+        $inicioSemana
+        ->copy()
+        ->endOfWeek();
+
+        $citas =
+
+        Cita::join(
+            'mascotas',
+            'citas.id_mascota',
+            '=',
+            'mascotas.id_mascota'
+        )
+
+        ->join(
+            'servicios',
+            'citas.id_servicio',
+            '=',
+            'servicios.id_servicio'
+        )
+
+        ->select(
+            'citas.*',
+            'mascotas.nombre as mascota',
+            'servicios.nombre as servicio'
+        )
+
+        ->whereBetween(
+            'fecha',
+            [
+                $inicioSemana->format('Y-m-d'),
+                $finSemana->format('Y-m-d')
+            ]
+        )
+
+        ->get();
+
+        return view(
+
+            'agenda.calendario',
+
+            compact(
+
+                'citas',
+
+                'inicioSemana',
+
+                'finSemana'
+
+            )
+
         );
     }
-    public function create()
+    public function edit($id)
     {
+        $cita = Cita::findOrFail($id);
+
         $mascotas = DB::table('mascotas')
             ->get();
 
@@ -86,8 +240,9 @@ class AgendaController extends Controller
             ->get();
 
         return view(
-            'agenda.create',
+            'agenda.edit',
             compact(
+                'cita',
                 'mascotas',
                 'servicios',
                 'groomers'
@@ -95,167 +250,101 @@ class AgendaController extends Controller
         );
     }
 
-    public function store(Request $request)
+
+    public function mover(
+    Request $request,
+        $id
+    )
     {
-        $mascota = Mascota::find(
-            $request->id_mascota
+        $cita = Cita::findOrFail($id);
+
+        $inicio = sprintf(
+            '%02d:00:00',
+            $request->hora
         );
 
-        $servicio = Servicio::find(
-            $request->id_servicio
-        );
+        $fecha=
+$request->fecha;
 
-        $duracion = $servicio->duracion_minutos;
-
-        // AJUSTE POR TAMAÑO
-
-        switch($mascota->tamano){
-
-            case 'mediana':
-
-                $duracion *= 1.10;
-
-            break;
-
-            case 'grande':
-
-                $duracion *= 1.15;
-
-            break;
-
-            case 'gigante':
-
-                $duracion *= 1.30;
-
-            break;
-
-        }
-
-        // AJUSTE POR TEMPERAMENTO
-
-        if(
-
-            $mascota->temperamento_general == 'nervioso'
-
-            ||
-
-            $mascota->temperamento_general == 'agresivo'
-
-        ){
-
-            $duracion += 20;
-
-        }
-
-        $duracion = ceil($duracion);
-
-        $inicio = strtotime(
-            $request->hora_inicio
-        );
+        // calcular hora fin
 
         $fin = date(
 
             'H:i:s',
 
-            $inicio + ($duracion * 60)
+            strtotime($inicio)
+
+            +
+
+            (
+
+                $cita->duracion_estimada_minutos
+                *60
+
+            )
 
         );
 
-        // VALIDAR SOLAPAMIENTO
+        // ==========================
+        // BLOQUEOS / FERIADOS
+        // ==========================
 
-        $ocupado = Cita::where(
-
-            'id_empleado',
-            $request->id_empleado
-
+        $bloqueo = DB::table(
+            'bloqueos_horario'
         )
 
         ->where(
             'fecha',
-            $request->fecha
+            $fecha
         )
 
-        ->where(function($q)
+        ->where(
+            'estado',
+            'activo'
+        )
 
-        use(
-            $request,
-            $fin
-        ){
+        ->first();
 
-            $q->whereBetween(
+        if($bloqueo){
 
-                'hora_inicio',
+            return response()->json([
 
-                [
+                'ok'=>false,
 
-                    $request->hora_inicio,
+                'msg'=>
 
-                    $fin
+                'Fecha bloqueada: '
 
-                ]
+                .$bloqueo->motivo
 
-            )
-
-            ->orWhereBetween(
-
-                'hora_fin',
-
-                [
-
-                    $request->hora_inicio,
-
-                    $fin
-
-                ]
-
-            );
-
-        })
-
-        ->exists();
-
-        if($ocupado){
-
-            return back()->with(
-
-                'error',
-
-                'Horario ocupado'
-
-            );
+            ]);
 
         }
 
-        // CONVERTIR DIA INGLES → ESPAÑOL
+        // ==========================
+        // DISPONIBILIDAD GROOMER
+        // ==========================
 
-        $dias = [
+        $dias=[
 
-            'Monday' => 'Lunes',
-
-            'Tuesday' => 'Martes',
-
-            'Wednesday' => 'Miercoles',
-
-            'Thursday' => 'Jueves',
-
-            'Friday' => 'Viernes',
-
-            'Saturday' => 'Sabado',
-
-            'Sunday' => 'Domingo'
+            'Monday'=>'Lunes',
+            'Tuesday'=>'Martes',
+            'Wednesday'=>'Miércoles',
+            'Thursday'=>'Jueves',
+            'Friday'=>'Viernes',
+            'Saturday'=>'Sábado',
+            'Sunday'=>'Domingo'
 
         ];
 
-        $dia = $dias[
+        $diaSemana =
+
+        $dias[
             date(
                 'l',
-                strtotime(
-                    $request->fecha
-                )
+                strtotime($fecha)
             )
         ];
-
-        // BUSCAR DISPONIBILIDAD
 
         $disp = DB::table(
             'disponibilidad_empleado'
@@ -263,34 +352,35 @@ class AgendaController extends Controller
 
         ->where(
             'id_empleado',
-            $request->id_empleado
+            $cita->id_empleado
         )
 
         ->where(
             'dia_semana',
-            $dia
+            $diaSemana
         )
 
         ->first();
 
         if(!$disp){
 
-            return back()->with(
+            return response()->json([
 
-                'error',
+                'ok'=>false,
 
-                'Groomer sin disponibilidad'
+                'msg'=>
 
-            );
+                'El groomer no trabaja '
+
+                .$diaSemana
+
+            ]);
 
         }
 
-        // VALIDAR HORARIO DISPONIBLE
-
         if(
 
-            $request->hora_inicio
-            < $disp->hora_inicio
+            $inicio < $disp->hora_inicio
 
             ||
 
@@ -298,145 +388,28 @@ class AgendaController extends Controller
 
         ){
 
-            return back()->with(
+            return response()->json([
 
-                'error',
+                'ok'=>false,
 
-                'Fuera del horario disponible'
+                'msg'=>
 
-            );
+                'Fuera del horario del groomer'
+
+            ]);
 
         }
 
-        Cita::create([
+        // ==========================
+        // SOLAPAMIENTO
+        // ==========================
 
-            'id_mascota' =>
-            $request->id_mascota,
+        $ocupado = Cita::where(
 
-            'id_servicio' =>
-            $request->id_servicio,
-
-            'id_empleado' =>
-            $request->id_empleado,
-
-            'fecha' =>
-            $request->fecha,
-
-            'hora_inicio' =>
-            $request->hora_inicio,
-
-            'hora_fin' =>
-            $fin,
-
-            'duracion_estimada_minutos' =>
-            $duracion,
-
-            'estado' =>
-            'reservado'
-
-        ]);
-
-        return redirect(
-            '/agenda'
-        )
-
-        ->with(
-            'success',
-            'Cita registrada'
-        );
-    }
-    public function calendario()
-    {
-
-        $citas=
-
-        Cita::join(
-            'mascotas',
-            'citas.id_mascota',
-            '=',
-            'mascotas.id_mascota'
-        )
-
-        ->join(
-            'servicios',
-            'citas.id_servicio',
-            '=',
-            'servicios.id_servicio'
-        )
-
-        ->select(
-            'citas.*',
-            'mascotas.nombre as mascota',
-            'servicios.nombre as servicio'
-        )
-
-        ->get();
-
-        return view(
-            'agenda.calendario',
-            compact(
-                'citas'
-            )
-        );
-
-    }
-    public function mover(
-        Request $request,
-        $id
-    )
-    {
-
-        $cita=
-        Cita::find($id);
-
-        $inicio=
-        sprintf(
-
-            '%02d:00:00',
-
-            $request->hora
-
-        );
-
-        $fecha=
-
-        now()
-
-        ->startOfWeek()
-
-        ->addDays(
-            $request->dia-1
-        )
-
-        ->format(
-            'Y-m-d'
-        );
-
-        $fin=
-
-        date(
-
-            'H:i:s',
-
-            strtotime(
-                $inicio
-            )
-
-            +
-
-            (
-                $cita
-                ->duracion_estimada_minutos
-                *60
-            )
-
-        );
-
-        $ocupado=
-
-        Cita::where(
             'id_empleado',
+
             $cita->id_empleado
+
         )
 
         ->where(
@@ -458,19 +431,31 @@ class AgendaController extends Controller
         ){
 
             $q->whereBetween(
+
                 'hora_inicio',
+
                 [
+
                     $inicio,
+
                     $fin
+
                 ]
+
             )
 
             ->orWhereBetween(
+
                 'hora_fin',
+
                 [
+
                     $inicio,
+
                     $fin
+
                 ]
+
             );
 
         })
@@ -481,20 +466,25 @@ class AgendaController extends Controller
 
             return response()->json([
 
-                'ok'=>false
+                'ok'=>false,
+
+                'msg'=>
+
+                'Horario ocupado'
 
             ]);
 
         }
 
-        $cita->fecha=
-        $fecha;
+        // ==========================
+        // ACTUALIZAR CITA
+        // ==========================
 
-        $cita->hora_inicio=
-        $inicio;
+        $cita->fecha = $fecha;
 
-        $cita->hora_fin=
-        $fin;
+        $cita->hora_inicio = $inicio;
+
+        $cita->hora_fin = $fin;
 
         $cita->save();
 
@@ -505,4 +495,188 @@ class AgendaController extends Controller
         ]);
 
     }
+
+
+    public function cancelar($id)
+    {
+        $cita = Cita::findOrFail($id);
+
+        $cita->estado =
+            'cancelado';
+
+        $cita->save();
+
+        return redirect(
+            '/agenda'
+        )
+
+        ->with(
+            'success',
+            'Cita cancelada'
+        );
+    }
+    public function update(
+    Request $request,
+    $id
+)
+{
+    $cita = Cita::findOrFail($id);
+
+    // recalcular fin
+
+    $inicio = strtotime(
+        $request->hora_inicio
+    );
+
+    $fin = date(
+
+        'H:i:s',
+
+        $inicio +
+
+        (
+
+            $cita
+            ->duracion_estimada_minutos
+
+            *60
+
+        )
+
+    );
+
+    // verificar choque
+
+    $ocupado = Cita::where(
+
+        'id_empleado',
+
+        $cita->id_empleado
+
+    )
+
+    ->where(
+        'fecha',
+        $request->fecha
+    )
+
+    ->where(
+        'id_cita',
+        '!=',
+        $id
+    )
+
+    ->where(function($q)
+
+    use(
+        $request,
+        $fin
+    ){
+
+        $q->whereBetween(
+
+            'hora_inicio',
+
+            [
+
+                $request->hora_inicio,
+
+                $fin
+
+            ]
+
+        )
+
+        ->orWhereBetween(
+
+            'hora_fin',
+
+            [
+
+                $request->hora_inicio,
+
+                $fin
+
+            ]
+
+        );
+
+    })
+
+    ->exists();
+
+    if($ocupado){
+
+        return back()
+
+        ->with(
+
+            'error',
+
+            'Horario ocupado'
+
+        );
+
+    }
+
+    $cita->fecha =
+        $request->fecha;
+
+    $cita->hora_inicio =
+        $request->hora_inicio;
+
+    $cita->hora_fin =
+        $fin;
+
+    if(
+        $request->estado
+    ){
+
+        $cita->estado =
+            $request->estado;
+
+    }
+
+    $cita->save();
+
+    return redirect(
+        '/agenda'
+    )
+
+    ->with(
+        'success',
+        'Cita actualizada'
+    );
+}
+private function calcularFin($inicio, $duracion)
+{
+    return date('H:i:s', strtotime($inicio) + ($duracion * 60));
+}
+private function haySolapamiento($idEmpleado, $fecha, $inicio, $fin, $ignoreId = null)
+{
+    return Cita::where('id_empleado', $idEmpleado)
+        ->where('fecha', $fecha)
+        ->when($ignoreId, function ($q) use ($ignoreId) {
+            $q->where('id_cita', '!=', $ignoreId);
+        })
+        ->where(function ($q) use ($inicio, $fin) {
+            $q->whereBetween('hora_inicio', [$inicio, $fin])
+              ->orWhereBetween('hora_fin', [$inicio, $fin]);
+        })
+        ->exists();
+}
+private function validarBloqueo($fecha)
+{
+    return DB::table('bloqueos_horario')
+        ->where('fecha', $fecha)
+        ->where('estado', 'activo')
+        ->first();
+}
+private function obtenerDisponibilidad($idEmpleado, $dia)
+{
+    return DB::table('disponibilidad_empleado')
+        ->where('id_empleado', $idEmpleado)
+        ->whereRaw('LOWER(dia_semana)=?', [strtolower($dia)])
+        ->first();
+}
 }

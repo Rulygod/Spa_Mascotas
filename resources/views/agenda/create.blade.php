@@ -156,8 +156,7 @@
                 <input
                     type="date"
                     name="fecha"
-                    required
-                >
+                value="{{ $solicitud->fecha ?? '' }}">
 
                 <label>
                     Hora inicio
@@ -166,7 +165,7 @@
                 <input
                     type="time"
                     name="hora_inicio"
-                    required
+                    value="{{ $solicitud->hora_inicio ?? '' }}">
                 >
 
                 <button>

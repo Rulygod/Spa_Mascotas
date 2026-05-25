@@ -32,4 +32,22 @@ class Cita extends Model
 
     ];
 
+    // 🔥 RELACIÓN MASCOTA
+    public function mascota()
+    {
+        return $this->belongsTo(Mascota::class, 'id_mascota');
+    }
+
+    // 🔥 RELACIÓN SERVICIO
+    public function servicio()
+    {
+        return $this->belongsTo(Servicio::class, 'id_servicio');
+    }
+
+    // 🔥 RELACIÓN EMPLEADO
+    public function empleado()
+    {
+        return $this->belongsTo(Empleado::class, 'id_empleado');
+    }
+
 }

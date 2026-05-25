@@ -12,7 +12,9 @@ use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\GroomerController;
 
 use App\Http\Controllers\MascotaController;
-
+use App\Http\Controllers\SolicitudController;
+use App\Http\Controllers\RecepcionController;
+use App\Http\Controllers\BloqueoController;
 use App\Models\Usuario;
 
 Route::get('/', function () {
@@ -75,7 +77,10 @@ Route::get('/cuenta', [ClienteController::class, 'cuenta'])
     ->middleware('role:2');
 
 
-
+Route::get(
+    '/admin/empleados/create',
+    [AdminController::class, 'formEmpleado']
+)->middleware('role:1');
 // SERVICIOS
 Route::get(
     '/admin/servicios',
@@ -96,6 +101,15 @@ Route::get(
     '/admin/servicios/edit/{id}',
     [ServicioController::class, 'edit']
 )->middleware('role:1');
+
+
+Route::post(
+
+'/agenda/cancelar/{id}',
+
+[AgendaController::class,'cancelar']
+
+);
 
 Route::post(
     '/admin/servicios/update/{id}',
@@ -203,3 +217,48 @@ Route::delete(
 [MascotaController::class,'destroy']
 
 )->middleware('role:2');
+
+Route::get(
+
+'/bloqueos',
+
+[BloqueoController::class,'index']
+
+);
+
+Route::get(
+
+'/bloqueos/create',
+
+[BloqueoController::class,'create']
+
+);
+
+Route::post(
+
+'/bloqueos',
+
+[BloqueoController::class,'store']
+
+);
+
+//solicitudes
+Route::post('/solicitudes', [SolicitudController::class, 'store']);
+
+Route::middleware('role:4')->group(function () {
+
+    Route::get('/recepcion', [RecepcionController::class, 'index']);
+
+    Route::get('/recepcion/solicitudes', [RecepcionController::class, 'solicitudes']);
+
+    Route::get('/recepcion/solicitud/{id}/tomar', [RecepcionController::class, 'tomarSolicitud']);
+
+    Route::get('/recepcion/solicitud/{id}/convertir', [RecepcionController::class, 'convertirSolicitud']);
+
+    Route::get('/recepcion/cita/{id}/pago', [RecepcionController::class, 'registrarPago']);
+
+    Route::get('/recepcion/cita/{id}/cancelar', [RecepcionController::class, 'cancelarCita']);
+});
+
+Route::get('/recepcion/agenda', [RecepcionController::class, 'agenda'])
+    ->middleware('role:4');

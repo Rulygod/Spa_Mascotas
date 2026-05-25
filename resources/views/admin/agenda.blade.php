@@ -42,6 +42,25 @@ body{
     border-radius:15px;
     box-shadow:0 5px 15px rgba(0,0,0,0.1);
 }
+.back-btn{
+
+    background:#7f8c8d;
+
+    color:white;
+
+    text-decoration:none;
+
+    padding:12px 18px;
+
+    border-radius:8px;
+
+}
+
+.back-btn:hover{
+
+    opacity:.9;
+
+}
 
 </style>
 </head>

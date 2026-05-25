@@ -2,15 +2,10 @@
 <html lang="es">
 
 <head>
-
 <meta charset="UTF-8">
-
-<title>
-Panel Administrador
-</title>
+<title>Panel Administrador</title>
 
 <style>
-
 *{
     margin:0;
     padding:0;
@@ -24,604 +19,306 @@ body{
 }
 
 /* SIDEBAR */
-
 .sidebar{
-
     width:260px;
     height:100vh;
-
     background:#2c3e50;
-
     color:white;
-
     position:fixed;
-
     padding:25px;
-
     overflow:auto;
-
 }
 
 .sidebar h2{
-
     margin-bottom:30px;
-
 }
 
 .sidebar a{
-
     display:block;
-
     text-decoration:none;
-
     color:white;
-
     padding:12px;
-
     margin-top:8px;
-
     border-radius:10px;
-
     transition:.3s;
-
 }
 
 .sidebar a:hover{
-
     background:#34495e;
-
 }
 
 /* MAIN */
-
 .main{
-
     margin-left:260px;
-
     width:100%;
-
     padding:30px;
-
 }
 
 /* CARDS */
-
 .cards{
-
     display:grid;
-
-    grid-template-columns:
-    repeat(auto-fit,minmax(220px,1fr));
-
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
     gap:20px;
-
 }
 
 .card{
-
     background:white;
-
     padding:25px;
-
     border-radius:15px;
-
-    box-shadow:
-    0 5px 15px rgba(0,0,0,.08);
-
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
 }
 
 .card h3{
-
     color:#7f8c8d;
-
     margin-bottom:10px;
-
 }
 
 .card p{
-
-    font-size:30px;
-
-    color:#2c3e50;
-
+    font-size:28px;
     font-weight:bold;
-
+    color:#2c3e50;
 }
 
-.card-link{
-
-    text-decoration:none;
-
-    color:inherit;
-
-}
-
-/* SECCIONES */
-
+/* SECTION */
 .section{
-
     background:white;
-
     margin-top:30px;
-
     padding:25px;
-
     border-radius:15px;
-
-    box-shadow:
-    0 5px 15px rgba(0,0,0,.08);
-
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
 }
 
 .section h2{
-
-    margin-bottom:20px;
-
+    margin-bottom:15px;
+    color:#2c3e50;
 }
 
+/* TABLE */
 table{
-
     width:100%;
-
     border-collapse:collapse;
-
 }
 
 th{
-
     background:#2c3e50;
-
     color:white;
-
     padding:12px;
-
+    text-align:left;
+    font-size:14px;
 }
 
 td{
-
     padding:12px;
-
     border-bottom:1px solid #ddd;
-
+    font-size:14px;
 }
 
 tr:hover{
-
     background:#f8f9fa;
+}
 
+/* BUTTON */
+.btn{
+    background:#2193b0;
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+.btn:hover{
+    background:#1b7e97;
 }
 
 .logout button{
-
     width:100%;
-
     padding:12px;
-
     margin-top:25px;
-
     border:none;
-
     background:#e74c3c;
-
     color:white;
-
     border-radius:10px;
-
     cursor:pointer;
-
 }
-
-.success{
-
-    background:#d4edda;
-
-    color:#155724;
-
-    padding:15px;
-
-    border-radius:10px;
-
-    margin-bottom:20px;
-
-}
-
 </style>
-
 </head>
 
 <body>
 
+<!-- SIDEBAR -->
 <div class="sidebar">
 
-    <h2>
-        🐾 Spa Mascotas
-    </h2>
+    <h2>🐾 Spa Mascotas</h2>
 
-    <a href="#dashboard">
-        📊 Dashboard
-    </a>
-
-    <a href="/admin/empleados">
-        👤 Registrar empleado
-    </a>
-
-    <a href="/admin/servicios">
-        ✂ Servicios
-    </a>
-
+    <a href="#dashboard">📊 Dashboard</a>
+    <a href="/admin/servicios">✂ Servicios</a>
+    <a href="/agenda">📅 Agenda</a>
     <a href="/disponibilidad">
         🕒 Disponibilidad Groomers
     </a>
-
-    <a href="/agenda">
-        📅 Agenda General
+    <a href="/bloqueos">
+         Bloqueos
     </a>
-
-    <a href="/agenda/calendario">
-        🗓 Calendario
+    <a href="/agenda/calendario">🗓 Calendario</a>
+    <a href="#usuarios">👥 Usuarios</a>
+    <a href="/admin/empleados/create">
+        ➕ Crear empleado
     </a>
+    <a href="#logs">📜 Logs</a>
 
-    <a href="#usuarios">
-        👥 Usuarios
-    </a>
-
-    <a href="#logs">
-        📜 Logs
-    </a>
-
-    <form
-        class="logout"
-        method="POST"
-        action="/logout"
-    >
-
+    <form class="logout" method="POST" action="/logout">
         @csrf
-
-        <button>
-
-            Cerrar sesión
-
-        </button>
-
+        <button>Cerrar sesión</button>
     </form>
 
 </div>
 
+<!-- MAIN -->
 <div class="main">
 
 @if(session('success'))
-
-<div class="success">
-
+<div style="background:#d4edda;color:#155724;padding:12px;border-radius:10px;margin-bottom:15px;">
     {{ session('success') }}
-
 </div>
-
 @endif
 
-<!-- ESTADISTICAS -->
+<!-- CARDS -->
+<div class="cards" id="dashboard">
 
-<div
-class="cards"
-id="dashboard"
->
+    <div class="card">
+        <h3>Total usuarios</h3>
+        <p>{{ $totalUsuarios }}</p>
+    </div>
 
-<div class="card">
+    <div class="card">
+        <h3>Clientes</h3>
+        <p>{{ $totalClientes }}</p>
+    </div>
 
-    <h3>
+    <div class="card">
+        <h3>Empleados</h3>
+        <p>{{ $totalEmpleados }}</p>
+    </div>
 
-        Total usuarios
-
-    </h3>
-
-    <p>
-
-        {{ $totalUsuarios }}
-
-    </p>
-
-</div>
-
-<div class="card">
-
-    <h3>
-
-        Clientes
-
-    </h3>
-
-    <p>
-
-        {{ $totalClientes }}
-
-    </p>
+    <div class="card">
+        <h3>Logs hoy</h3>
+        <p>{{ $logsHoy }}</p>
+    </div>
 
 </div>
 
-<div class="card">
+<!-- SOLICITUDES -->
+<div class="section">
 
-    <h3>
+    <h2>📩 Solicitudes pendientes</h2>
 
-        Empleados
+    <table>
 
-    </h3>
+        <tr>
+            <th>Mascota</th>
+            <th>Cliente</th>
+            <th>Servicio</th>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Estado</th>
+            <th>Acción</th>
+        </tr>
 
-    <p>
+        @foreach($solicitudes as $s)
 
-        {{ $totalEmpleados }}
+        <tr>
 
-    </p>
+            <td>{{ $s->mascota->nombre }}</td>
+            <td>{{ $s->cliente->usuario->nombres }}
+{{ $s->cliente->usuario->apellidos }}</td>
+            <td>{{ $s->servicio->nombre }}</td>
+            <td>{{ $s->fecha }}</td>
+            <td>{{ $s->hora_inicio }}</td>
 
-</div>
+            <td>
+                <span style="background:#f1c40f;padding:5px 10px;border-radius:8px;font-size:12px;">
+                    {{ $s->estado }}
+                </span>
+            </td>
 
-<div class="card">
+            <td>
+                <a href="/agenda/create?solicitud={{ $s->id_solicitud }}">
+                    <button>Crear cita</button>
+                </a>    
+            </td>
 
-    <h3>
+        </tr>
 
-        Logs hoy
+        @endforeach
 
-    </h3>
-
-    <p>
-
-        {{ $logsHoy }}
-
-    </p>
-
-</div>
-
-<a
-href="/admin/servicios"
-class="card-link"
->
-
-<div class="card">
-
-    <h3>
-
-        ✂ Servicios
-
-    </h3>
-
-    <p>
-
-        Gestionar servicios
-
-    </p>
-
-</div>
-
-</a>
-
-<a
-href="/disponibilidad"
-class="card-link"
->
-
-<div class="card">
-
-    <h3>
-
-        🕒 Disponibilidad
-
-    </h3>
-
-    <p>
-
-        Horarios groomers
-
-    </p>
-
-</div>
-
-</a>
-
-<a
-href="/agenda"
-class="card-link"
->
-
-<div class="card">
-
-    <h3>
-
-        📅 Agenda
-
-    </h3>
-
-    <p>
-
-        Gestión citas
-
-    </p>
-
-</div>
-
-</a>
-
-<a
-href="/agenda/calendario"
-class="card-link"
->
-
-<div class="card">
-
-    <h3>
-
-        🗓 Calendario
-
-    </h3>
-
-    <p>
-
-        Vista semanal
-
-    </p>
-
-</div>
-
-</a>
+    </table>
 
 </div>
 
 <!-- USUARIOS -->
+<div class="section" id="usuarios">
 
-<div
-class="section"
-id="usuarios"
->
+    <h2>Usuarios registrados</h2>
 
-<h2>
+    <table>
 
-Usuarios registrados
+        <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Rol</th>
+        </tr>
 
-</h2>
+        @foreach($usuarios as $u)
+        <tr>
+            <td>{{ $u->id_usuario }}</td>
+            <td>{{ $u->nombres }} {{ $u->apellidos }}</td>
+            <td>{{ $u->correo }}</td>
+            <td>
+                @if($u->id_rol==1)
+                    Admin
+                @elseif($u->id_rol==2)
+                    Cliente
+                @else
+                    Empleado
+                @endif
+            </td>
+        </tr>
+        @endforeach
 
-<table>
-
-<tr>
-
-<th>ID</th>
-
-<th>Nombre</th>
-
-<th>Correo</th>
-
-<th>Rol</th>
-
-<th>Estado</th>
-
-</tr>
-
-@foreach($usuarios as $u)
-
-<tr>
-
-<td>
-
-{{ $u->id_usuario }}
-
-</td>
-
-<td>
-
-{{ $u->nombres }}
-
-{{ $u->apellidos }}
-
-</td>
-
-<td>
-
-{{ $u->correo }}
-
-</td>
-
-<td>
-
-@if($u->id_rol==1)
-
-Administrador
-
-@elseif($u->id_rol==2)
-
-Cliente
-
-@else
-
-Empleado
-
-@endif
-
-</td>
-
-<td>
-
-{{ $u->estado }}
-
-</td>
-
-</tr>
-
-@endforeach
-
-</table>
+    </table>
 
 </div>
 
 <!-- LOGS -->
+<div class="section" id="logs">
 
-<div
-class="section"
-id="logs"
->
+    <h2>Logs del sistema</h2>
 
-<h2>
+    <table>
 
-Logs sistema
+        <tr>
+            <th>Usuario</th>
+            <th>Acción</th>
+            <th>IP</th>
+            <th>Fecha</th>
+        </tr>
 
-</h2>
+        @foreach($logs as $log)
+        <tr>
+            <td>{{ $log->user_id }}</td>
+            <td>{{ $log->accion }}</td>
+            <td>{{ $log->ip }}</td>
+            <td>{{ $log->fecha }}</td>
+        </tr>
+        @endforeach
 
-<table>
-
-<tr>
-
-<th>Usuario</th>
-
-<th>Rol</th>
-
-<th>Acción</th>
-
-<th>IP</th>
-
-<th>Fecha</th>
-
-</tr>
-
-@foreach($logs as $log)
-
-<tr>
-
-<td>
-
-{{ $log->user_id }}
-
-</td>
-
-<td>
-
-{{ $log->rol }}
-
-</td>
-
-<td>
-
-{{ $log->accion }}
-
-</td>
-
-<td>
-
-{{ $log->ip }}
-
-</td>
-
-<td>
-
-{{ $log->fecha }}
-
-</td>
-
-</tr>
-
-@endforeach
-
-</table>
+    </table>
 
 </div>
 
 </div>
 
 </body>
-
 </html>

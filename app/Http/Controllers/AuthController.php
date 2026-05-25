@@ -37,29 +37,19 @@ class AuthController extends Controller
 
         // ❌ Usuario no existe
         if (!$usuario) {
-
             LogHelper::registrar('Usuario no existe');
-
             return back()->with('error', 'Usuario no existe');
         }
 
-        // 🔓 Si el bloqueo ya expiró → resetear
-        if (
-            $usuario->bloqueado_hasta &&
-            now()->gt($usuario->bloqueado_hasta)
-        ) {
-
+        // 🔓 Reset bloqueo si ya expiró
+        if ($usuario->bloqueado_hasta && now()->gt($usuario->bloqueado_hasta)) {
             $usuario->intentos_fallidos = 0;
             $usuario->bloqueado_hasta = null;
             $usuario->save();
         }
 
-        // 🔒 Cuenta bloqueada
-        if (
-            $usuario->bloqueado_hasta &&
-            now()->lt($usuario->bloqueado_hasta)
-        ) {
-
+        // 🔒 Si está bloqueado
+        if ($usuario->bloqueado_hasta && now()->lt($usuario->bloqueado_hasta)) {
             $segundos = (int) now()->diffInSeconds($usuario->bloqueado_hasta);
 
             return back()->with(
@@ -68,106 +58,82 @@ class AuthController extends Controller
             );
         }
 
-        // 🚫 Cuenta inactiva
+        // 🚫 cuenta inactiva
         if ($usuario->estado != 'activo') {
-
             LogHelper::registrar('Intento con cuenta inactiva');
 
             return back()->with(
                 'error',
-                'Cuenta inactiva, revisar Correo'
+                'Cuenta inactiva, revisar correo'
             );
         }
 
-        // ✅ Contraseña correcta
+        // =========================
+        // 🔑 CONTRASEÑA CORRECTA
+        // =========================
         if (Hash::check($request->password, $usuario->contrasena)) {
 
             LogHelper::registrar('Inicio de sesión exitoso');
 
-            // 🔥 Resetear intentos
+            // reset intentos
             $usuario->intentos_fallidos = 0;
             $usuario->bloqueado_hasta = null;
             $usuario->save();
 
+            // =========================
+            // 🔐 ADMIN (2FA)
+            // =========================
             if ($usuario->id_rol == 1) {
 
-                // generar código
                 $codigo = rand(100000, 999999);
 
-                // guardar código
                 $usuario->codigo_2fa = $codigo;
-
-                // expira en 5 minutos
                 $usuario->codigo_2fa_expira = now()->addMinutes(5);
-
                 $usuario->save();
 
-                // enviar correo
-                Mail::raw(
-                    "Tu código de verificación es: $codigo",
-                    function ($message) use ($usuario) {
+                Mail::raw("Tu código es: $codigo", function ($message) use ($usuario) {
+                    $message->to($usuario->correo)
+                            ->subject('Código 2FA');
+                });
 
-                        $message->to($usuario->correo)
-                                ->subject('Código de verificación');
-                    }
-                );
-
-                // guardar temporalmente ID
                 session([
                     '2fa_admin_id' => $usuario->id_usuario
                 ]);
 
-                // NO iniciar sesión todavía
                 return redirect('/verificar-2fa');
             }
 
-            // 👥 CLIENTE Y EMPLEADO
+            // =========================
+            // LOGIN NORMAL
+            // =========================
             Auth::login($usuario);
 
             switch ($usuario->id_rol) {
 
+                // CLIENTE
                 case 2:
-                    return redirect('/');
+                    return redirect('/cliente');
+
+                // EMPLEADO GENERAL (fallback)
                 case 3:
-                    $empleado=
+                    return redirect('/personal');
 
-                    DB::table(
-                    'empleados'
-                    )
+                // RECEPCIÓN (NUEVO)
+                case 4:
+                    return redirect('/recepcion');
 
-                    ->where(
-                    'id_usuario',
-                    $usuario->id_usuario
-                    )
-
-                    ->first();
-
-                    if(
-                    $empleado->cargo
-                    =='groomer'
-                    ){
-
-                    return redirect(
-                    '/groomer/agenda'
-                    );
-
-                    }
-
-                    return redirect(
-                    '/personal'
-                    );
+                default:
+                    return redirect('/');
             }
         }
 
-        // ❌ Contraseña incorrecta
+        // =========================
+        // ❌ CONTRASEÑA INCORRECTA
+        // =========================
         $usuario->intentos_fallidos++;
 
-        // 🔒 Bloquear tras 5 intentos
         if ($usuario->intentos_fallidos >= 5) {
-
-            // 🔥 PRUEBA: 30 segundos
             $usuario->bloqueado_hasta = now()->addSeconds(30);
-
             LogHelper::registrar('Cuenta bloqueada temporalmente');
         }
 
